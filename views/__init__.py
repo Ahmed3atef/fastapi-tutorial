@@ -1,1 +1,1 @@
-from .posts import post_view, root
+from .posts import *
