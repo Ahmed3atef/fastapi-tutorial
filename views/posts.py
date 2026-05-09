@@ -58,7 +58,7 @@ def user_posts_page(
         "user_posts.html",
         {
             "posts":posts,
-            "user": user.username,
+            "user": user,
             "title": f"{user.username}'s Posts",
         }
     )
