@@ -9,7 +9,7 @@ class PostSerializer(BaseModel):
     content: str = Field(min_length=1)
     
 class PostCreateSerializer(PostSerializer):
-    pass
+    user_id: int
     
 class PostResponseSerializer(PostSerializer):
     model_config = ConfigDict(from_attributes=True)

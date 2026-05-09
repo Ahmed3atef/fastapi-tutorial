@@ -1,10 +1,9 @@
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from typing import Annotated
-from sqlalchemy import select
-from sqlalchemy.orm import Session
+
+
 from db import Base, engine, get_db
 
 try:
@@ -15,4 +14,5 @@ except Exception as e:
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/media", StaticFiles(directory="media"), name="media")
 templates = Jinja2Templates(directory="templates")
