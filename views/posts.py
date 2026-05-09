@@ -5,6 +5,7 @@ from core.settings import app, templates
 from fastapi import Depends, Request, HTTPException, status
 from db.config import get_db
 from db.models import Post, User
+from schemas.schema_posts import PostResponseSerializer
 
 
 @app.get("/posts/{id}", include_in_schema=False)
@@ -61,3 +62,21 @@ def user_posts_page(
             "title": f"{user.username}'s Posts",
         }
     )
+    
+
+@app.get("/api/users/{id}/posts", 
+         response_model=list[PostResponseSerializer])
+def get_user_posts(id: int, 
+                   db: Annotated[Session, Depends(get_db)]):
+    
+    result = db.execute(select(User).where(User.id == id))
+    user = result.scalars().first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+    result = db.execute(select(Post).where(
+        Post.user_id == id))
+    posts = result.scalars().all()
+    return posts
