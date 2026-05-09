@@ -1,4 +1,4 @@
-from settings import app
+from core import app
 from fastapi import status, HTTPException
 from db.json import posts
 from schemas import PostResponseSerializer, PostCreateSerializer
@@ -21,7 +21,6 @@ def create_post(post: PostCreateSerializer):
     new_id = max(p["id"] for p in posts) + 1 if posts else 1
     new_post = {
         "id": new_id,
-        "author": post.author,
         "title": post.title,
         "content": post.content,
         "date_posted": "April 23, 2025",

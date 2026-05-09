@@ -1,4 +1,4 @@
-from settings import app, templates
+from core.settings import app, templates
 from fastapi import Request, HTTPException, status
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
