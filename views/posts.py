@@ -64,19 +64,4 @@ def user_posts_page(
     )
     
 
-@app.get("/api/users/{id}/posts", 
-         response_model=list[PostResponseSerializer])
-def get_user_posts(id: int, 
-                   db: Annotated[Session, Depends(get_db)]):
-    
-    result = db.execute(select(User).where(User.id == id))
-    user = result.scalars().first()
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
-        )
-    result = db.execute(select(Post).where(
-        Post.user_id == id))
-    posts = result.scalars().all()
-    return posts
+
