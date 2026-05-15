@@ -1,20 +1,19 @@
 from typing import Annotated
 from sqlalchemy import select
-from sqlalchemy.orm import Session
-from core.settings import app, templates
+from core.settings import app, templates, AsyncSession, selectinload
 from fastapi import Depends, Request, HTTPException, status
-from db.config import get_db
-from db.models import Post, User
-from schemas.schema_posts import PostResponseSerializer
+from db import Post, User, get_db
 
 
 @app.get("/posts/{id}", include_in_schema=False)
-def post_view(request: Request,
+async def post_view(request: Request,
             id: int,
-            db: Annotated[Session, Depends(get_db)]
+            db: Annotated[AsyncSession, Depends(get_db)]
         ):
-    res = db.execute(
-        select(Post).where(Post.id == id)
+    res = await db.execute(
+        select(Post)
+        .options(selectinload(Post.author))
+        .where(Post.id == id)
     )
     
     post = res.scalars().first()
@@ -35,13 +34,14 @@ def post_view(request: Request,
         include_in_schema=False,
         name="user_posts"
     )
-def user_posts_page(
+async def user_posts_page(
     request: Request,
     id: int,
-    db: Annotated[Session, Depends(get_db)]
+    db: Annotated[AsyncSession, Depends(get_db)]
 ):
-    res = db.execute(
-        select(User).where(User.id == id)
+    res = await db.execute(
+        select(User)
+        .where(User.id == id)
     )
     user = res.scalars().first()
     if not user:
@@ -49,8 +49,10 @@ def user_posts_page(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found"
         )
-    res = db.execute(
-        select(Post).where(Post.user_id == id)
+    res = await db.execute(
+        select(Post)
+        .options(selectinload(Post.author))
+        .where(Post.user_id == id)
     )
     posts = res.scalars().all()
     return templates.TemplateResponse(
@@ -63,5 +65,3 @@ def user_posts_page(
         }
     )
     
-
-
