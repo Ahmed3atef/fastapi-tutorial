@@ -1,23 +1,31 @@
-from core.settings import app, AsyncSession, selectinload
-from fastapi import status, HTTPException, Depends
-from db import get_db, User, Post
+from main import(
+    AsyncSession, 
+    selectinload, 
+    Annotated, 
+    select, 
+    status,
+    APIRouter,
+    Depends,
+    get_db,
+    Post,
+    HTTPException,
+    User
+)
 from schemas import UserResponseSerializer, UserCreateSerializer, UserUpdateSerializer, PostResponseSerializer
-from typing import Annotated
-from sqlalchemy import select
 
+router = APIRouter()
 
-
-@app.post("/api/users",response_model=UserResponseSerializer,status_code=status.HTTP_201_CREATED)
-async def create_user(user: UserCreateSerializer,db: Annotated[AsyncSession, Depends(get_db)]):
+@router.post("", response_model=UserResponseSerializer, status_code=status.HTTP_201_CREATED)
+async def create_user(user: UserCreateSerializer, db: Annotated[AsyncSession, Depends(get_db)]):
     res_username = await db.execute(
         select(User)
         .where(
             User.username == user.username)
-        )
+    )
     res_email = await db.execute(
         select(User)
         .where(User.email == user.email)
-        )
+    )
     existing_user_username = res_username.scalars().first()
     existing_user_email = res_email.scalars().first()
 
@@ -44,8 +52,8 @@ async def create_user(user: UserCreateSerializer,db: Annotated[AsyncSession, Dep
     return new_user
 
 
-@app.get("/api/users/{id}",response_model=UserResponseSerializer,status_code=status.HTTP_200_OK)
-async def get_user(id: int,db: Annotated[AsyncSession, Depends(get_db)]):
+@router.get("/{id}", response_model=UserResponseSerializer, status_code=status.HTTP_200_OK)
+async def get_user(id: int, db: Annotated[AsyncSession, Depends(get_db)]):
 
     res = await db.execute(
         select(User)
@@ -61,8 +69,8 @@ async def get_user(id: int,db: Annotated[AsyncSession, Depends(get_db)]):
                         detail="User not found")
 
 
-@app.patch("/api/users/{id}", response_model=UserResponseSerializer)
-async def update_user(id: int,data: UserUpdateSerializer,db: Annotated[AsyncSession, Depends(get_db)]):
+@router.patch("/{id}", response_model=UserResponseSerializer)
+async def update_user(id: int, data: UserUpdateSerializer, db: Annotated[AsyncSession, Depends(get_db)]):
     res = await db.execute(select(User).where(User.id == id))
     user = res.scalars().first()
 
@@ -109,7 +117,7 @@ async def update_user(id: int,data: UserUpdateSerializer,db: Annotated[AsyncSess
     return user
 
 
-@app.delete("/api/users/{id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_user(id: int, db: Annotated[AsyncSession, Depends(get_db)]):
     res = await db.execute(
         select(User)
@@ -125,8 +133,8 @@ async def delete_user(id: int, db: Annotated[AsyncSession, Depends(get_db)]):
     await db.commit()
 
 
-@app.get("/api/users/{id}/posts",response_model=list[PostResponseSerializer])
-async def get_user_posts(id: int,db: Annotated[AsyncSession, Depends(get_db)]):
+@router.get("/{id}/posts", response_model=list[PostResponseSerializer])
+async def get_user_posts(id: int, db: Annotated[AsyncSession, Depends(get_db)]):
 
     result = await db.execute(
         select(User)

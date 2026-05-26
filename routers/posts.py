@@ -1,28 +1,39 @@
-from fastapi import status, HTTPException, Depends
-from db import Post, User, get_db
-from typing import Annotated
-from sqlalchemy import select
-from schemas import PostResponseSerializer, PostCreateSerializer, PostUpdateSerializer
-from core.settings import app, AsyncSession, selectinload
+from main import (
+    AsyncSession,
+    selectinload,
+    Annotated,
+    select,
+    status,
+    APIRouter,
+    Depends,
+    get_db,
+    Post,
+    HTTPException,
+    User
+)
+
+from schemas import PostCreateSerializer,PostUpdateSerializer,PostResponseSerializer
+
+router = APIRouter()
 
 
-@app.get("/api/posts", response_model=list[PostResponseSerializer])
+@router.get("", response_model=list[PostResponseSerializer])
 async def get_posts(db: Annotated[AsyncSession, Depends(get_db)]):
     result = await db.execute(
-            select(Post)
-            .options(selectinload(Post.author))
-        )
+        select(Post)
+        .options(selectinload(Post.author))
+    )
     posts = result.scalars().all()
     return posts
 
 
-@app.post("/api/posts",response_model=PostResponseSerializer,status_code=status.HTTP_201_CREATED,)
-async def create_post(post: PostCreateSerializer,db: Annotated[AsyncSession, Depends(get_db)]):
+@router.post("", response_model=PostResponseSerializer, status_code=status.HTTP_201_CREATED,)
+async def create_post(post: PostCreateSerializer, db: Annotated[AsyncSession, Depends(get_db)]):
     result = await db.execute(
         select(User)
         .where(
             User.id == post.user_id)
-        )
+    )
     user = result.scalars().first()
     if not user:
         raise HTTPException(
@@ -40,7 +51,7 @@ async def create_post(post: PostCreateSerializer,db: Annotated[AsyncSession, Dep
     return new_post
 
 
-@app.get("/api/posts/{id}", response_model=PostResponseSerializer)
+@router.get("/{id}", response_model=PostResponseSerializer)
 async def get_post(id: int, db: Annotated[AsyncSession, Depends(get_db)]):
     result = await db.execute(
         select(Post)
@@ -55,8 +66,8 @@ async def get_post(id: int, db: Annotated[AsyncSession, Depends(get_db)]):
     )
 
 
-@app.put("/api/posts/{id}", response_model=PostResponseSerializer)
-async def update_post_full(id: int,data: PostCreateSerializer,db: Annotated[AsyncSession, Depends(get_db)]):
+@router.put("/{id}", response_model=PostResponseSerializer)
+async def update_post_full(id: int, data: PostCreateSerializer, db: Annotated[AsyncSession, Depends(get_db)]):
     res = await db.execute(
         select(Post)
         .options(selectinload(Post.author))
@@ -89,8 +100,8 @@ async def update_post_full(id: int,data: PostCreateSerializer,db: Annotated[Asyn
     return post
 
 
-@app.patch("/api/posts/{id}", response_model=PostResponseSerializer)
-async def update_post_partial(id: int,data: PostUpdateSerializer,db: Annotated[AsyncSession, Depends(get_db)]):
+@router.patch("/{id}", response_model=PostResponseSerializer)
+async def update_post_partial(id: int, data: PostUpdateSerializer, db: Annotated[AsyncSession, Depends(get_db)]):
     res = await db.execute(
         select(Post)
         .options(selectinload(Post.author))
@@ -111,7 +122,7 @@ async def update_post_partial(id: int,data: PostUpdateSerializer,db: Annotated[A
     return post
 
 
-@app.delete("/api/posts/{id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_post(id: int, db: Annotated[AsyncSession, Depends(get_db)]):
     res = await db.execute(
         select(Post)
