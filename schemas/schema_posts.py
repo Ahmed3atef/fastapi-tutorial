@@ -1,7 +1,7 @@
 from pydantic import ConfigDict, Field, BaseModel
 from datetime import datetime
 
-from .schema_users import UserResponseSerializer
+from .schema_users import UserPublicSerializer
 
 
 class PostSerializer(BaseModel):
@@ -22,5 +22,5 @@ class PostResponseSerializer(PostSerializer):
     id: int
     user_id: int
     date_posted: datetime
-    author: UserResponseSerializer
+    author: UserPublicSerializer
     
