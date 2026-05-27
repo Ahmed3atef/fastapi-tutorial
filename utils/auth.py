@@ -7,7 +7,7 @@ from config import settings
 
 password_hash = PasswordHash.recommended()
 
-oauth2_schema = OAuth2PasswordBearer(tokenUrl="api/users/koken")
+oauth2_schema = OAuth2PasswordBearer(tokenUrl="api/users/token")
 
 def hash_password(password:str) -> str:
     return password_hash.hash(password)
