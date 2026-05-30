@@ -11,16 +11,16 @@ from main import(
     HTTPException,
     User
 )
+
 from schemas import UserPublicSerializer, UserPrivateSerializer, UserCreateSerializer, UserUpdateSerializer, PostResponseSerializer, TokenSerializer
 
 from datetime import timedelta
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import func
 from utils.auth import (
+    CurrentUser,
     create_access_token, 
     hash_password, 
-    oauth2_schema, 
-    verify_access_token,
     verify_password
 )
 from config import settings
@@ -95,46 +95,8 @@ async def login_for_access_token(
     return TokenSerializer(access_token=access_token, token_type="bearer")
 
 @router.get("/me", response_model=UserPrivateSerializer, status_code=status.HTTP_200_OK)
-async def get_current_user(
-    token: Annotated[str, Depends(oauth2_schema)],
-    db: Annotated[AsyncSession, Depends(get_db)],
-):
-    """Get the currently authenticated user."""
-    user_id = verify_access_token(token)
-    if user_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    
-    # Validate user_id is valid integer 
-    try:
-        user_id_int = int(user_id)
-    except(TypeError, ValueError):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    
-    result = await db.execute(
-        select(User).
-        where(
-            User.id == user_id_int
-        ),
-    )
-    
-    user = result.scalars().first()
-    
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-        
-    return user
+async def get_current_user(current_user: CurrentUser):
+    return current_user
 
 @router.get("/{id}", response_model=UserPublicSerializer, status_code=status.HTTP_200_OK)
 async def get_user(id: int, db: Annotated[AsyncSession, Depends(get_db)]):
@@ -154,14 +116,22 @@ async def get_user(id: int, db: Annotated[AsyncSession, Depends(get_db)]):
 
 
 @router.patch("/{id}", response_model=UserPrivateSerializer)
-async def update_user(id: int, data: UserUpdateSerializer, db: Annotated[AsyncSession, Depends(get_db)]):
+async def update_user(id: int,
+    current_user: CurrentUser,
+    data: UserUpdateSerializer,
+    db: Annotated[AsyncSession, Depends(get_db)]
+):
+    
+    if id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to update this user",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+        
     res = await db.execute(select(User).where(User.id == id))
     user = res.scalars().first()
-
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-
+    
     if data.username is not None and data.username.lower() != user.username.lower():
         res = await db.execute(
             select(User)
@@ -206,7 +176,17 @@ async def update_user(id: int, data: UserUpdateSerializer, db: Annotated[AsyncSe
 
 
 @router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_user(id: int, db: Annotated[AsyncSession, Depends(get_db)]):
+async def delete_user(id: int, 
+    current_user: CurrentUser,
+    db: Annotated[AsyncSession, Depends(get_db)]
+):
+    if id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to delete this user",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+        
     res = await db.execute(
         select(User)
         .where(User.id == id)
@@ -222,7 +202,10 @@ async def delete_user(id: int, db: Annotated[AsyncSession, Depends(get_db)]):
 
 
 @router.get("/{id}/posts", response_model=list[PostResponseSerializer])
-async def get_user_posts(id: int, db: Annotated[AsyncSession, Depends(get_db)]):
+async def get_user_posts(
+    id: int, 
+    current_user: CurrentUser,
+    db: Annotated[AsyncSession, Depends(get_db)]):
 
     result = await db.execute(
         select(User)

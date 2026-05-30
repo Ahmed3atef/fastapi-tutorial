@@ -12,6 +12,8 @@ from main import (
     User
 )
 
+from utils.auth import CurrentUser, get_current_user
+
 from schemas import PostCreateSerializer,PostUpdateSerializer,PostResponseSerializer
 
 router = APIRouter()
@@ -28,22 +30,17 @@ async def get_posts(db: Annotated[AsyncSession, Depends(get_db)]):
 
 
 @router.post("", response_model=PostResponseSerializer, status_code=status.HTTP_201_CREATED,)
-async def create_post(post: PostCreateSerializer, db: Annotated[AsyncSession, Depends(get_db)]):
-    result = await db.execute(
-        select(User)
-        .where(
-            User.id == post.user_id)
-    )
-    user = result.scalars().first()
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
-        )
+async def create_post(
+    post: PostCreateSerializer,
+    current_user: CurrentUser, 
+    db: Annotated[AsyncSession, Depends(get_db)]
+):
+    
+    
     new_post = Post(
         title=post.title,
         content=post.content,
-        user_id=post.user_id,
+        user_id=current_user.id,
     )
     db.add(new_post)
     await db.commit()
@@ -67,7 +64,12 @@ async def get_post(id: int, db: Annotated[AsyncSession, Depends(get_db)]):
 
 
 @router.put("/{id}", response_model=PostResponseSerializer)
-async def update_post_full(id: int, data: PostCreateSerializer, db: Annotated[AsyncSession, Depends(get_db)]):
+async def update_post_full(
+    id: int, 
+    current_user: CurrentUser,
+    data: PostCreateSerializer, 
+    db: Annotated[AsyncSession, Depends(get_db)]
+):
     res = await db.execute(
         select(Post)
         .options(selectinload(Post.author))
@@ -79,21 +81,15 @@ async def update_post_full(id: int, data: PostCreateSerializer, db: Annotated[As
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
 
-    if data.user_id != post.user_id:
-        result = await db.execute(
-            select(User)
-            .where(User.id == data.user_id)
+    if post.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, 
+            detail="Not authorized to update this post",
         )
-        user = result.scalars().first()
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found",
-            )
 
     post.title = data.title
     post.content = data.content
-    post.user_id = data.user_id
+    post.user_id = current_user.id
 
     await db.commit()
     await db.refresh(post, attribute_names=["author"])
@@ -101,7 +97,12 @@ async def update_post_full(id: int, data: PostCreateSerializer, db: Annotated[As
 
 
 @router.patch("/{id}", response_model=PostResponseSerializer)
-async def update_post_partial(id: int, data: PostUpdateSerializer, db: Annotated[AsyncSession, Depends(get_db)]):
+async def update_post_partial(
+    id: int, 
+    current_user: CurrentUser,
+    data: PostUpdateSerializer, 
+    db: Annotated[AsyncSession, Depends(get_db)]
+):
     res = await db.execute(
         select(Post)
         .options(selectinload(Post.author))
@@ -112,6 +113,12 @@ async def update_post_partial(id: int, data: PostUpdateSerializer, db: Annotated
     if not post:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
+    
+    if post.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to update this post",
+        )
 
     update_data = data.model_dump(exclude_unset=True)
     for field, value in update_data.items():
@@ -123,7 +130,11 @@ async def update_post_partial(id: int, data: PostUpdateSerializer, db: Annotated
 
 
 @router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_post(id: int, db: Annotated[AsyncSession, Depends(get_db)]):
+async def delete_post(
+    id: int, 
+    current_user: CurrentUser,
+    db: Annotated[AsyncSession, Depends(get_db)]
+):
     res = await db.execute(
         select(Post)
         .options(selectinload(Post.author))
@@ -134,6 +145,12 @@ async def delete_post(id: int, db: Annotated[AsyncSession, Depends(get_db)]):
     if not post:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
+    
+    if post.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to update this post",
+        )
 
     await db.delete(post)
     await db.commit()
